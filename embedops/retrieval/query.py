@@ -8,6 +8,7 @@ from sentence_transformers import SentenceTransformer
 
 from embedops.errors import ConfigError, VectorStoreError, EmbeddingError
 from embedops.vector_store.pinecone_client import get_index
+from embedops.retrieval.chunk_store import load_chunk_by_keys
 
 load_dotenv()
 
@@ -56,20 +57,20 @@ def query_vectors(
 
     formatted = []
     for m in matches:
-        formatted.append(
-            {
-                "score": m["score"] if isinstance(m, dict) else m.score,
-                "doc_id": m["metadata"]["doc_id"],
-                "chunk_id": m["metadata"]["chunk_id"],
-                "source": m["metadata"]["source"],
-            }
-        )
+        score = m["score"] if isinstance(m, dict) else m.score
+        md = m["metadata"] if isinstance(m, dict) else m.metadata
 
+        row = load_chunk_by_keys(md["doc_id"], md["chunk_id"])
+        text = (row["text"][:500] + "...") if row and row.get("text") else None
+
+        formatted.append(
+            {"score": float(score), "doc_id": md["doc_id"], "chunk_id": md["chunk_id"], "source": md["source"],
+                "text_preview": text, })
     return formatted
 
 
 if __name__ == "__main__":
-    query = "What is this document about?"
+    query = "What is model drift in MLOps?"
     hits = query_vectors(query)
     for h in hits:
         print(h)
