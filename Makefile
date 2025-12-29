@@ -16,7 +16,7 @@ ps:
 	docker compose ps
 
 restart:
-	docker compose down
+	docker compose down -v
 	docker compose up --build
 
 clean:
