@@ -13,6 +13,15 @@ from embedops.retrieval.chunk_store import load_chunk_by_keys
 
 load_dotenv()
 
+def dedupe_hits(hits: list[dict]) -> list[dict]:
+    # Dedupe by stable retrieval identity; keep best score
+    best = {}
+    for h in hits:
+        key = (h.get("doc_id"), int(h.get("chunk_id")), h.get("source"), h.get("version"), h.get("namespace"))
+        if key not in best or float(h.get("score", 0.0)) > float(best[key].get("score", 0.0)):
+            best[key] = h
+    return sorted(best.values(), key=lambda x: float(x.get("score", 0.0)), reverse=True)
+
 
 def _env(name: str, default: Optional[str] = None) -> str:
     v = os.getenv(name, default)
@@ -133,4 +142,4 @@ def retrieve(
             }
         )
 
-    return out
+    return dedupe_hits(out)
