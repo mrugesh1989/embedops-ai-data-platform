@@ -1,0 +1,5 @@
+pinecone
+sentence-transformers
+pypdf
+python-dotenv
+tqdm
