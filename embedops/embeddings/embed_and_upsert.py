@@ -4,6 +4,8 @@ import os
 import uuid
 import time
 from typing import Any
+import json
+from pathlib import Path
 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -66,39 +68,40 @@ def main():
         index = get_index(dimension=dim)
 
         cfg = ChunkConfig(chunk_words=400, overlap_words=80)
+        # Chunk store (local) to map retrieval results back to text
+        chunk_store_path = Path("data/processed/chunks.jsonl")
+        chunk_store_path.parent.mkdir(parents=True, exist_ok=True)
 
         vectors: list[tuple[str, list[float], dict[str, Any]]] = []
         skipped_chunks = 0
 
-        # Build vectors
-        for doc in tqdm(docs, desc="Docs"):
-            chunks = chunk_text(doc["text"], cfg)
-            if not chunks:
-                continue
-
-            try:
-                embs = model.encode(chunks, normalize_embeddings=True)
-            except Exception as e:
-                raise EmbeddingError(f"Embedding generation failed for source={doc.get('source')}: {e}") from e
-
-            for i, emb in enumerate(embs):
-                if emb is None or len(emb) != dim:
-                    skipped_chunks += 1
+        # Build vectors + write chunk store
+        with chunk_store_path.open("w", encoding="utf-8") as chunk_store_file:
+            for doc in tqdm(docs, desc="Docs"):
+                chunks = chunk_text(doc["text"], cfg)
+                if not chunks:
                     continue
 
-                vectors.append(
-                    (
-                        str(uuid.uuid4()),
-                        emb.tolist(),
-                        {
-                            "doc_id": doc["doc_id"],
-                            "chunk_id": i,
-                            "source": doc["source"],
-                            "version": doc["version"],
-                        },
-                    )
-                )
+                try:
+                    embs = model.encode(chunks, normalize_embeddings=True)
+                except Exception as e:
+                    raise EmbeddingError(f"Embedding generation failed for source={doc.get('source')}: {e}") from e
 
+                for i, emb in enumerate(embs):
+                    if emb is None or len(emb) != dim:
+                        skipped_chunks += 1
+                        continue
+
+                    vector_id = str(uuid.uuid4())
+                    metadata = {"doc_id": doc["doc_id"], "chunk_id": i, "source": doc["source"],
+                        "version": doc["version"], }
+
+                    # Persist chunk text locally (one JSON per line)
+                    chunk_store_file.write(json.dumps(
+                        {"vector_id": vector_id, "doc_id": doc["doc_id"], "chunk_id": i, "source": doc["source"],
+                            "version": doc["version"], "text": chunks[i], }, ensure_ascii=False, ) + "\n")
+
+                    vectors.append((vector_id, emb.tolist(), metadata))
         if not vectors:
             raise EmbeddingError("No vectors produced. Check PDFs for extractable text and chunking settings.")
 
