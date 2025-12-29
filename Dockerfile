@@ -14,4 +14,9 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "embedops.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# ensure entrypoint is executable
+RUN chmod +x /app/embedops/api/entrypoint.sh
+
+EXPOSE 8000
+
+CMD ["/app/embedops/api/entrypoint.sh"]
