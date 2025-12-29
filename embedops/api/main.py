@@ -13,6 +13,7 @@ from embedops.errors import (
     ProcessingError,
 )
 from embedops.retrieval.service import init_resources, retrieve, RetrievalResources
+from fastapi.responses import RedirectResponse
 
 app = FastAPI(
     title="EmbedOps Retrieval API",
@@ -55,6 +56,9 @@ class QueryResponse(BaseModel):
     latency_ms: int
     hits: List[Hit]
 
+@app.get("/")
+def root():
+    return RedirectResponse(url="/docs")
 
 @app.on_event("startup")
 def startup():
