@@ -1,10 +1,8 @@
-mkdir -p embedops/api
-cat > embedops/api/entrypoint.sh << 'EOF'
 #!/usr/bin/env sh
 set -eu
 
 CHUNK_STORE_PATH="${CHUNK_STORE_PATH:-/app/data/processed/chunks.jsonl}"
-WAIT_SECONDS="${WAIT_SECONDS:-60}"
+WAIT_SECONDS="${WAIT_SECONDS:-120}"
 
 echo "[EmbedOps API] Waiting for chunk store: ${CHUNK_STORE_PATH} (timeout=${WAIT_SECONDS}s)"
 
@@ -20,4 +18,3 @@ done
 
 echo "[EmbedOps API] ERROR: chunk store not found after ${WAIT_SECONDS}s: ${CHUNK_STORE_PATH}"
 exit 1
-EOF
