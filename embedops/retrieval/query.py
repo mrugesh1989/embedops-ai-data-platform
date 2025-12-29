@@ -73,5 +73,12 @@ def query_vectors(
 if __name__ == "__main__":
     resources = init_resources()
     hits = retrieve(resources=resources, query="What is model drift in MLOps?", top_k=5, score_threshold=0.45, )
+    # Deduplicate by stable key; keep highest score
+    dedup = {}
     for h in hits:
-        print(h)
+        key = (h["doc_id"], h["chunk_id"], h.get("source"), h.get("version"), h.get("namespace"))
+        if key not in dedup or h["score"] > dedup[key]["score"]:
+            dedup[key] = h
+
+    output = sorted(dedup.values(), key=lambda x: x["score"], reverse=True)
+    print(output)
