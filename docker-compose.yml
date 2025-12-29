@@ -1,0 +1,28 @@
+services:
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipeline
+    env_file:
+      - .env
+    volumes:
+      - processed_data:/app/data/processed
+      - ./data/raw:/app/data/raw
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - processed_data:/app/data/processed
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+
+volumes:
+  processed_data:

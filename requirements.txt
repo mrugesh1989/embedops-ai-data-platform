@@ -3,3 +3,6 @@ sentence-transformers
 pypdf
 python-dotenv
 tqdm
+fastapi
+uvicorn
+pydantic

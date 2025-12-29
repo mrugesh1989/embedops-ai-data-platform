@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 from embedops.errors import ConfigError, VectorStoreError, EmbeddingError
 from embedops.vector_store.pinecone_client import get_index
 from embedops.retrieval.chunk_store import load_chunk_by_keys
+from embedops.retrieval.service import init_resources, retrieve
 
 load_dotenv()
 
@@ -70,7 +71,7 @@ def query_vectors(
 
 
 if __name__ == "__main__":
-    query = "What is model drift in MLOps?"
-    hits = query_vectors(query)
+    resources = init_resources()
+    hits = retrieve(resources=resources, query="What is model drift in MLOps?", top_k=5, score_threshold=0.45, )
     for h in hits:
         print(h)
