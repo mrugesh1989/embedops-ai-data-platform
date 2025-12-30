@@ -4,7 +4,7 @@ import os
 import json
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 from embedops.errors import ConfigError
 
@@ -18,48 +18,42 @@ def _env(name: str, default: Optional[str] = None) -> str:
 
 class LLMClient:
     """
-    Minimal, provider-agnostic client for OpenAI-compatible chat completions APIs.
-    Works with OpenAI, Azure OpenAI (with compatible gateway), and many self-hosted servers
-    (vLLM, Ollama w/ OpenAI adapter, etc.) if they expose /v1/chat/completions.
+    Minimal Ollama client using the native REST endpoint (/api/generate).
+    Zero Python deps beyond stdlib.
     """
 
     def __init__(
         self,
         base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
         model: Optional[str] = None,
-        timeout_s: int = 60,
+        timeout_s: int = 120,
     ):
-        self.base_url = (base_url or os.getenv("LLM_BASE_URL", "https://api.openai.com")).rstrip("/")
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.model = model or os.getenv("LLM_MODEL", "gpt-4o-mini")
+        self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "None")).rstrip("/")
+        self.model = model or os.getenv("OLLAMA_MODEL", "None")
         self.timeout_s = timeout_s
 
-        if not self.api_key:
-            raise ConfigError("OPENAI_API_KEY is missing. Set it in .env to enable /rag/answer.")
+        if not self.model:
+            raise ConfigError("OLLAMA_MODEL is empty.")
+        if not self.base_url:
+            raise ConfigError("OLLAMA_BASE_URL is empty.")
 
-    def chat_completions(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0.2,
-        max_tokens: int = 300,
-    ) -> Dict[str, Any]:
-        url = f"{self.base_url}/v1/chat/completions"
+    def generate(self, prompt: str, temperature: float = 0.2, max_tokens: int = 300) -> Dict[str, Any]:
+        url = f"{self.base_url}/api/generate"
         payload = {
             "model": self.model,
-            "messages": messages,
-            "temperature": float(temperature),
-            "max_tokens": int(max_tokens),
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": float(temperature),
+                "num_predict": int(max_tokens),
+            },
         }
 
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
+            headers={"Content-Type": "application/json"},
             method="POST",
         )
 
@@ -69,6 +63,10 @@ class LLMClient:
                 return json.loads(raw)
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="ignore") if hasattr(e, "read") else str(e)
-            raise RuntimeError(f"LLM HTTPError {e.code}: {body}") from e
+            raise RuntimeError(f"Ollama HTTPError {e.code}: {body}") from e
         except Exception as e:
-            raise RuntimeError(f"LLM request failed: {e}") from e
+            raise RuntimeError(f"Ollama request failed: {e}") from e
+
+    @staticmethod
+    def extract_text(resp: Dict[str, Any]) -> str:
+        return str(resp.get("response", "")).strip()
