@@ -10,6 +10,28 @@ services:
       - ./data/raw:/app/data/raw
     restart: "no"
 
+  # Free, cross-platform LLM runtime
+  ollama:
+    image: ollama/ollama:latest
+    container_name: embedops-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  # One-time model pull (first run); reuses cached model on subsequent runs
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-lc"]
+    command: ["ollama pull llama3.1"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
   api:
     build:
       context: .
@@ -19,6 +41,9 @@ services:
     environment:
       - CHUNK_STORE_PATH=/app/data/processed/chunks.jsonl
       - WAIT_SECONDS=120
+      # LLM settings for cross-platform docker execution:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.1
     ports:
       - "8000:8000"
     volumes:
@@ -26,7 +51,12 @@ services:
     depends_on:
       pipeline:
         condition: service_completed_successfully
-
+      ollama:
+        condition: service_started
+      ollama-pull:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
 volumes:
   processed_data:
+  ollama_data:
