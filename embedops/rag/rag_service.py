@@ -7,10 +7,6 @@ from embedops.llm.llm_client import LLMClient
 
 
 def _format_context(hits: List[Dict[str, Any]], max_chars: int = 3500) -> str:
-    """
-    Convert retrieval hits into a compact context block with citations.
-    Enforces a character budget to avoid huge prompts.
-    """
     parts: List[str] = []
     used = 0
 
@@ -43,9 +39,6 @@ def answer_question(
     temperature: float = 0.2,
     max_tokens: int = 300,
 ) -> Dict[str, Any]:
-    """
-    RAG: retrieve context and generate an answer. Retrieval remains unchanged and reusable.
-    """
     hits = retrieve(
         resources=resources,
         query=query,
@@ -66,26 +59,16 @@ def answer_question(
     )
     user = f"Question:\n{query}\n\nContext:\n{context if context else '[no context]'}"
 
-    resp = llm.chat_completions(
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+    resp = llm.generate(
+        prompt=f"{system}\n\n{user}",
         temperature=temperature,
         max_tokens=max_tokens,
     )
-
-    # OpenAI-compatible response parsing
-    content = (
-        resp.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-        .strip()
-    )
+    content = llm.extract_text(resp)
 
     return {
         "answer": content,
-        "hits": hits,  # keep transparency
+        "hits": hits,
         "used_context_chars": len(context),
         "llm_model": llm.model,
     }
